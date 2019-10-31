@@ -54,7 +54,7 @@ public class SparkSQL_Banco {
 
         // nao ha mais a necessidade de fazer a validacao
         // pois ja foi realizada
-//        validaDados(joined);
+        validaDados(joined);
 
         return joined;
 
@@ -128,6 +128,7 @@ public class SparkSQL_Banco {
 
         Dataset<Row> aggAvg = groupedDataset.avg(stringSeq);
         aggAvg.show();
+        salvaDataSetEmArquivo(aggAvg, "output/banco/validacao_dados", 1);
     }
 
     public static Dataset<Row> removeInconsistencias(Dataset<Row> dataset, String column){
@@ -162,7 +163,7 @@ public class SparkSQL_Banco {
 //        questao05(dataset);
 //        questao06(dataset);
 //        questao07(dataset);
-        questao08(dataset);
+//        questao08(dataset);
 
     }
 
@@ -232,7 +233,9 @@ public class SparkSQL_Banco {
             e.printStackTrace();
         }finally {
             SQLContext sqlContext = dataset.sqlContext();
-            String strSQL = "SELECT count(HS_CPF)/(SELECT count(*) FROM df) FROM df WHERE FUNCIONARIOPUBLICOCASA = 1";
+            String strSQL = "SELECT count(HS_CPF)/(SELECT count(*) FROM df) as PERCENTUAL_CLIENTES" +
+                    " FROM df " +
+                    " WHERE FUNCIONARIOPUBLICOCASA = 1";
             Dataset<Row> datasetFuncionarioPublico = sqlContext.sql(strSQL);
 
             datasetFuncionarioPublico.show();
