@@ -152,9 +152,29 @@ public class SparkSQL_Banco {
 
     // --=== QUESTOES ===--
     public static void realizaTarefas(Dataset<Row> dataset){
+
 //        questao01(dataset);
 //        questao02(dataset);
-        questao03(dataset);
+//        questao03(dataset);
+//        questao04(dataset);
+//        contagem(dataset);
+
+//        questao05(dataset);
+//        questao06(dataset);
+//        questao07(dataset);
+        questao08(dataset);
+
+    }
+
+
+
+    public static void contagem(Dataset<Row> dataset) {
+        System.out.println("Contagem de HS_CPF de toda a base");
+        dataset = removeInconsistencias(dataset, "HS_CPF");
+
+        Dataset<Row> hs_cpf = dataset.agg(count(col("HS_CPF")).alias("ContagemCPF"));
+        hs_cpf.show();
+        salvaDataSetEmArquivo(hs_cpf, "output/banco/contagem.csv", 1);
     }
 
     public static void questao01(Dataset<Row> dataset) {
@@ -166,7 +186,6 @@ public class SparkSQL_Banco {
         contagemOrientacaoSexual.show();
         salvaDataSetEmArquivo(contagemOrientacaoSexual, "output/banco/count_orientacaoSexual.csv", 1);
     }
-
 
     public static void questao02(Dataset<Row> dataset) {
         System.out.println("O número máximo e mínimo de e-mails cadastrados em toda a base de dados");
@@ -190,10 +209,125 @@ public class SparkSQL_Banco {
         salvaDataSetEmArquivo(hs_cpf, "output/banco/renda_superior_10000.csv", 1);
     }
 
-    
+    public static void questao04(Dataset<Row> dataset) {
+        System.out.println("O número de propostas de crédito cujo cliente é beneficiário do bolsa família (BOLSAFAMILIA)");
+        dataset = removeInconsistencias(dataset, "BOLSAFAMILIA");
 
+        Dataset<Row> datasetBolsaFamilia = dataset.filter(col("BOLSAFAMILIA").equalTo(1));
+        Dataset<Row> hs_cpf = datasetBolsaFamilia.agg(count(col("HS_CPF")));
+        hs_cpf.show();
+        salvaDataSetEmArquivo(hs_cpf, "output/banco/questao04-bolsa_familia.csv", 1);
+    }
 
+    public static void questao05(Dataset<Row> dataset){
+        System.out.println("O percentual de propostas de crédito cujo cliente possui um funcionário público em casa" +
+                " (use a coluna FUNCIONARIOPUBLICOCASA)");
 
+        //como deve ser tratado? Tirar agora ira reduzir o numero maximo na contagem de total
+//        dataset = removeInconsistencias(dataset, "FUNCIONARIOPUBLICOCASA");
 
+        try {
+            dataset.createTempView("df");
+        } catch (AnalysisException e) {
+            e.printStackTrace();
+        }finally {
+            SQLContext sqlContext = dataset.sqlContext();
+            String strSQL = "SELECT count(HS_CPF)/(SELECT count(*) FROM df) FROM df WHERE FUNCIONARIOPUBLICOCASA = 1";
+            Dataset<Row> datasetFuncionarioPublico = sqlContext.sql(strSQL);
+
+            datasetFuncionarioPublico.show();
+            salvaDataSetEmArquivo(datasetFuncionarioPublico, "output/banco/questao05-datasetFuncionarioPublico.csv", 1);
+        }
+
+    }
+
+    public static void questao06(Dataset<Row> dataset){
+        System.out.println("O percentual de propostas de crédito cujo cliente vive em uma cidade com IDH em cada uma das faixas: " +
+                "0 a 10, 10 a 20, 20 a 30, 30 a 40, 40 a 50, 50 a 60, 60 a 70, 70 a 80" +
+                "80 a 90 e 90 a 100;");
+
+        //como deve ser tratado? Tirar agora ira reduzir o numero maximo na contagem de total
+        //        dataset = removeInconsistencias(dataset, "IDHMUNICIPIO");
+
+        try {
+            dataset.createTempView("df");
+        } catch (AnalysisException e) {
+            e.printStackTrace();
+        }finally {
+            SQLContext sqlContext = dataset.sqlContext();
+
+            String strSQL = " SELECT ( (floor(IDHMUNICIPIO / 10) * 10) ) as FAIXA_IDH," +
+                    " count(HS_CPF) as CONTAGEM, count(HS_CPF)/(SELECT count(*) FROM df) as PORCENTAGEM " +
+                    " FROM df " +
+                    " GROUP BY FAIXA_IDH " +
+                    " ORDER BY FAIXA_IDH";
+
+            Dataset<Row> datasetIDH = sqlContext.sql(strSQL);
+            datasetIDH.show();
+
+            datasetIDH.printSchema();
+
+            datasetIDH.show();
+            salvaDataSetEmArquivo(datasetIDH, "output/banco/questao06-AGRUPADO_IDH.csv", 1);
+        }
+    }
+
+    public static void questao07(Dataset<Row> dataset){
+        System.out.println("O número de propostas de clientes que vivem próximos de uma região de risco " +
+                "(isto é, cuja distância para a zona de risco mais próxima é menor que 5km) " +
+                "e que possuam renda maior que R$ 7.000,00 (Sete mil reais)");
+
+                dataset = removeInconsistencias(dataset, "DISTZONARISCO");
+                dataset = removeInconsistencias(dataset, "ESTIMATIVARENDA");
+
+        try {
+            dataset.createTempView("df");
+        } catch (AnalysisException e) {
+            e.printStackTrace();
+        }finally {
+            SQLContext sqlContext = dataset.sqlContext();
+
+            String strSQL = " SELECT count(HS_CPF) as CLIENTES_EM_ZONA_DE_RISCO " +
+                    " FROM df " +
+                    " WHERE DISTZONARISCO < 5000 AND ESTIMATIVARENDA > 7000";
+
+            Dataset<Row> datasetIDH = sqlContext.sql(strSQL);
+            datasetIDH.show();
+
+            datasetIDH.printSchema();
+
+            salvaDataSetEmArquivo(datasetIDH, "output/banco/questao07-ZONA_RISCO.csv", 1);
+        }
+    }
+
+    public static void questao08(Dataset<Row> dataset){
+        System.out.println("O número de propostas de clientes adimplentes e inadimplentes (TARGET) " +
+                "que possuem renda maior que R$ 5.000,00 (cinco mil reais) e " +
+                "também se eles são sócios de empresas ou não (SOCIOEMPRESA)");
+
+        dataset = removeInconsistencias(dataset, "ESTIMATIVARENDA");
+        dataset = removeInconsistencias(dataset, "SOCIOEMPRESA");
+
+        try {
+            dataset.createTempView("df");
+        } catch (AnalysisException e) {
+            e.printStackTrace();
+        }finally {
+            SQLContext sqlContext = dataset.sqlContext();
+
+            String strSQL = " SELECT TARGET, SOCIOEMPRESA, count(HS_CPF) as NUMERO_CLIENTES" +
+                    " FROM df " +
+                    " WHERE ESTIMATIVARENDA > 5000" +
+                    " GROUP BY TARGET, SOCIOEMPRESA " +
+                    " ORDER BY TARGET, SOCIOEMPRESA ";
+
+            Dataset<Row> datasetIDH = sqlContext.sql(strSQL);
+            datasetIDH.show();
+
+            datasetIDH.printSchema();
+
+            salvaDataSetEmArquivo(datasetIDH, "output/banco/questao08-TARGET.csv", 1);
+        }
+    }
 
 }
